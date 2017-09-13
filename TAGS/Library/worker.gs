@@ -1,53 +1,3 @@
-// Copyright 2014 Martin Hawksey. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-var VERSION = "6.0";
-var TwtrService = null;
-var MASTERTAGS = "1EqFm184RiXsAA0TQkOyWQDsr4eZ0XRuSFryIDun_AA4";
-var MASTERSHEETS_NEW = "1y4GwWs8tDRoS0Hg8t-kZfx2wg1Jfjw3u4CkqS1TzXCs";
-var MASTERSHEETS_OLD = "0AqGkLMU9sHmLdExOcE1FbzNadGdEUlhTRE1keHd1N0E";
-
-/**
-* Sets the TwtrService library being used.
-*
-* @param {TwtrService} aTwtrService a TwtrService library object.  
-*/
-function setTwtrService(aTwtrService){
-  TwtrService = aTwtrService;
-}
-
-/**
-* Set TAGS menu.
-*
-* @return {array} menuEntries used in onOpen.
-*/
-function setMenu(){
-  var menuEntries = [];
-  menuEntries.push({name: "Setup Twitter Access", functionName: "setup"});
-  menuEntries.push({name: "Disconnect Twitter Access", functionName: "disconnectTwitter"});
-  //menuEntries.push({name: "Set Default Folder", functionName: "setDefaultFolder"});
-  menuEntries.push(null); // line separator
-  menuEntries.push({name: "Delete Duplicate Data", functionName: "deleteDuplicates"});
-  menuEntries.push({name: "Wipe Archive Sheet", functionName: "wipeArchive"});
-  menuEntries.push(null); // line separator
-  menuEntries.push({name: "Add Summary Sheet", functionName: "addSummarySheet"});
-  menuEntries.push({name: "Add Dashboard Sheet", functionName: "addDashboardSheet"});
-  menuEntries.push(null); // line separator
-  menuEntries.push({name: "Run Now!", functionName: "getTweets"});
-  return menuEntries;
-}
-
 /**
 * Collects data from Twitter API and writes to sheet.
 *
@@ -99,43 +49,17 @@ function collectTweets(doc, optParams){
 * @return {Sheet} returns sheet for key chaining
 */
 function addSheet(doc, sheetName, version){
-  if (version.match(/os$/)){ // old sheets
-    var ss_ID = MASTERSHEETS_OLD;
+  //var ss_ID = MASTERSHEETS_NEW;
+  if (!doc.getSheetByName(sheetName)){
+    Browser.msgBox("The "+sheetName+" sheet has been deleted or renamed. If deleted it can be copied from https://goo.gl/BtWxry")
   } else {
-    var ss_ID = MASTERSHEETS_NEW;
+    return doc.getSheetByName(sheetName).showSheet().activate();
   }
-  return SpreadsheetApp.openById(ss_ID).getSheetByName(sheetName).copyTo(doc).setName(sheetName);
+  //return SpreadsheetApp.openById(ss_ID).getSheetByName(sheetName).copyTo(doc).setName(sheetName);
 }
 
 /**
-* Creates a new TAGS archive spreadsheet from the template master.
-*
-* @param {Sheet} sheet The sheet where the new template reference should be recorded.
-*/
-function newTAGS(sheet){
-  var name = Browser.inputBox("Enter a suffix name for your new TAGS sheet:");
-  if (name){
-    var tempDoc = SpreadsheetApp.openById(MASTERTAGS);
-    var newDoc = tempDoc.copy("TAGS v"+VERSION+ " - " +name);
-    Utilities.sleep(1000);
-    sheet.insertRowAfter(7);
-    sheet.getRange(8, 1, 1, 3).setValues([[new Date(), name, newDoc.getId()]]);
-    sheet.getRange(8, 4, 1, 2).setFormulas([['=HYPERLINK("https://docs.google.com/spreadsheets/d/"&C8&"/edit", "Open")', 
-                                                  '=TRANSPOSE(IMPORTRANGE(C8,"Readme/Settings!B9:B22"))']]);
-  }
-}
-
-function setDefaultFolder(){
-  var folder_id = Browser.inputBox("Set Default Folder", 
-                              "You are about to wipe the Archive sheet\\n\\nDo you want to continue?", 
-                              Browser.Buttons.OK_CANCEL);
-  if (folder_id !== "cancel"){
-    PropertiesService.getUserProperties().setProperty("folder_id", folder_id);
-  }
-}
-
-/**
-* Creates a new TAGS archive spreadsheet from the template master.
+* Get Tweets from API.
 *
 * @private
 * @param {Object} params The query parameters.
@@ -156,7 +80,7 @@ function getTweets_(params, type) {
     var maxid_str = "";
     
     while(!done){
-      var responseData = TwtrService.get(type, queryParams);
+      var responseData = get(type, queryParams);
       if (responseData.message){
         Logger.log(responseData.message);
         Browser.msgBox("Error", responseData.message, Browser.Buttons.OK);
@@ -177,8 +101,16 @@ function getTweets_(params, type) {
               for (j in objects[i].user){
                 objects[i]["user_"+j] = objects[i].user[j];
               }
+              if (objects[i]["user_url"] !== null){
+                objects[i]["user_url"] = objects[i].user.entities.url.urls[0].expanded_url;
+              }
               objects[i]["from_user"] = objects[i]["user_screen_name"];
-              objects[i]["from_user_id_str"] = objects[i]["user_id_str"]
+              if (!objects[i]["retweeted_status"]) {
+                objects[i]["text"] = objects[i]["full_text"];
+              } else {
+                objects[i]["text"] = "RT @"+objects[i]["retweeted_status"]['user']['screen_name']+": "+objects[i]["retweeted_status"]["full_text"];
+              }
+              objects[i]["from_user_id_str"] = objects[i]["user_id_str"];
               objects[i]["profile_image_url"] = objects[i]["user_profile_image_url"];
               objects[i]["status_url"] = "http://twitter.com/"+objects[i].user_screen_name+"/statuses/"+objects[i].id_str;
               objects[i]["time"] = new Date(objects[i]["created_at"]);
@@ -195,7 +127,7 @@ function getTweets_(params, type) {
             }
           } else {
             if (objects[objects.length-1]["id_str"] === data[data.length-1]["id_str"]){
-              done = true;
+              //done = true;
             }
           }
           queryParams.max_id = objects[objects.length-1]["id_str"];
@@ -274,26 +206,13 @@ function filterUnique(tweets){
 * @return {Object} data of Twitter rates
 */
 function testRate(){
-  var api_request = "application/rate_limit_status.json?resources=users,search,statuses";
-  var data = TwtrService.get("application/rate_limit_status", {'resources': 'users,search,statuses,favorites'});
-  var output = {};
-  output.search = data.resources.search["/search/tweets"];
-  output.user_id = data.resources.users["/users/show/:id"];
-  output.user_lookup = data.resources.users["/users/lookup"];
-  output.favorites = data.resources.favorites["/favorites/list"];
-  output.statuses_embeds = data.resources.statuses["/statuses/oembed"];
-  
-  Browser.msgBox(JSON.stringify(output,"","\t"));
-  Logger.log(data);
+  //var api_request = "application/rate_limit_status.json?resources=users,search,statuses";
+  var data = get("application/rate_limit_status", {'resources': 'users,search,statuses'});
   return data;
 }
 
 /**
-* Test rate limits from Twitter.
-*
-* @param {Object} options used in Twitter API call
-* @param {string} type of Twitter call
-* @return {Object} params used in Twitter API call
+* Get API query params.
 */
 function getQueryParams_(options, type) {    
   var params = {};
@@ -404,4 +323,128 @@ function deleteDuplicates(sheet) {
 */
 function twDate_(aDate){
   return Utilities.formatDate(aDate, "GMT", "yyyy-MM-dd");
+}
+
+/**
+* Rebuilds a Twitter archive from Twitter IDs.
+* @param {SpreadsheetApp} doc The spreadsheet document instigating collectTweets where data will be written. 
+* @param {Object} optParams Optional advanced parameters"}. 
+*
+*/
+function rebuildArchiveFromIds(doc, optParams){
+  //var doc = SpreadsheetApp.getActiveSpreadsheet();
+  var out = {};
+  // get IDs sheet
+  if (!doc.getSheetByName('ID')){
+    Browser.msgBox('Build archive from tweet IDs', 
+                   "This function needs a sheet named 'ID' containing a list of tweet IDs in column A.\\n\\n" +
+                   "A sheet named 'ID' has been created for you", 
+                   Browser.Buttons.OK);
+    doc.insertSheet('ID', 3);
+    return;
+  }
+  var result = Browser.msgBox("Data Setup", 
+                              "Does your ID sheet contain a header row", 
+                              Browser.Buttons.YES_NO);
+  // Process the user's response.
+  if (result == 'yes') {
+    var start_row = 2;
+  } else {
+    var start_row = 1;
+  }
+  var sheet_ids = doc.getSheetByName('ID');
+  try {
+    var ids_in = sheet_ids.getRange(start_row,1,sheet_ids.getLastRow(),2).getValues();
+    sheet_ids.getRange(start_row,1,sheet_ids.getLastRow(),1).setNumberFormat("@");
+  } catch(e) {
+    Browser.msgBox('It looks like you have no IDs in column A');
+    return;
+  }
+  var ids = [];
+  var imported_ids = {};
+  for (var i=0; i<ids_in.length; i++){
+    if (ids_in[0]!=="" && ids_in[1] !=="Y"){
+      ids.push(ids_in[i][0]);
+      imported_ids[ids_in[i][0]] = 'N';
+    }
+  }
+  if (ids.length === 0){
+    return; 
+  }
+  var chunks = chunk_(ids,100);
+  
+  var quoatas = testRate();
+  var status_quota = quoatas.resources.statuses['/statuses/lookup'];
+  var doTrigger = false;
+  
+  if (status_quota.remaining > chunks.length){
+    var loops = chunks.length;
+  } else {
+    var loops = status_quota.remaining;
+    var doTrigger = true;
+  }
+  for (var j = 0; j < loops; j++){
+  // if (status_quota.remaining > chunks.length){
+    var sheet = doc.getSheetByName("Archive");
+    var data = [];
+    var idx = 0;
+    var chunks = chunk_(ids,100);
+    for (j in chunks){
+      try {
+        var objects = get("statuses/lookup", {include_entities:true, tweet_mode: 'extended', id: chunks[j].join()});
+        for (i in objects){          
+          if (objects[i].geo != null){
+            objects[i]["geo_coordinates"] = "loc: "+objects[i].geo.coordinates[0]+","+objects[i].geo.coordinates[1];
+          }
+          for (o in objects[i].user){
+            objects[i]["user_"+o] = objects[i].user[o];
+          }
+          if (objects[i]["user_url"] !== null){
+            objects[i]["user_url"] = objects[i].user.entities.url.urls[0].expanded_url;
+          }
+          objects[i]["from_user"] = objects[i]["user_screen_name"];
+          if (!objects[i]["retweeted_status"]) {
+            objects[i]["text"] = objects[i]["full_text"];
+          } else {
+            objects[i]["text"] = "RT @"+objects[i]["retweeted_status"]['user']['screen_name']+": "+objects[i]["retweeted_status"]["full_text"];
+          }
+          objects[i]["from_user_id_str"] = objects[i]["user_id_str"]
+          objects[i]["profile_image_url"] = objects[i]["user_profile_image_url"];
+          objects[i]["status_url"] = "http://twitter.com/"+objects[i].user_screen_name+"/statuses/"+objects[i].id_str;
+          objects[i]["time"] = new Date(objects[i]["created_at"]);
+          objects[i]["entities_str"] = JSON.stringify(objects[i]["entities"]);
+          data[idx]=objects[i];
+          imported_ids[objects[i]["id_str"]] = 'Y';
+          idx ++;          
+        }
+      } catch(e) {
+        Browser.msgBox(e);
+      }
+    }
+    if (data.length>0){
+      sheet.insertRowsAfter(1, data.length);
+      setRowsData_(sheet, data);
+      for (var i=0; i<ids_in.length; i++){
+        if (imported_ids[ids_in[i][0]] == 'Y'){
+          ids_in[i][1] = 'Y';
+        }
+      }
+      sheet_ids.getRange(start_row,1,ids_in.length,2).setValues(ids_in);
+    }
+  }
+  if (doTrigger){
+    // setup script trigger to run script 
+    return {status: 'set trigger', msg: 'You\'ve run out of quota. This script will resume when reset at '+new Date(status_quota.reset*1000), time: status_quota.reset};
+  } else {
+    // finish 
+    return {status: 'ok', msg: 'Tweets have been imported to the Archive sheet'};
+  }
+ 
+}
+
+// http://jsfromhell.com/array/chunk
+function chunk_(a, s){
+    for(var x, i = 0, c = -1, l = a.length, n = []; i < l; i++)
+        (x = i % s) ? n[c][x] = a[i] : n[++c] = [a[i]];
+    return n;
 }

@@ -1,4 +1,4 @@
-// Copyright 2014 Martin Hawksey. All Rights Reserved.
+// Copyright 2016 Martin Hawksey. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,23 +12,55 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-* This code uses the following libraries:
-*    * MlOtXVYZDtB6iTu3Tp0rKBH797_hv7HHb - TAGS (interacts with sheet and TwtrService library)
-*    * MarIlVOhstkJA6QjPgCWAHIq9hSqx7jwh - TwtrService (a Twitter library for Google Apps Script)
-*/
 
-var VERSION = "6.0ns";
-TAGS.setTwtrService(TwtrService);
+var VERSION = "6.1.6";
 
 /**
 * Performs the data collection and write
 */
 function getTweets(){
+  if (!TAGS.isUserConnectedToTwitter()){
+    var result = Browser.msgBox("Oops!", 
+                              "Looks like you haven't setup Twitter access\\n\\nWould you like to do that now?", 
+                              Browser.Buttons.YES_NO);
+    // Process the user's response.
+    if (result == 'yes') {
+      setup();
+    }
+  } else {
     var doc = SpreadsheetApp.getActiveSpreadsheet();
     var advParams = {};
     //var advParams = {"geocode": "40.714353,-74.005973,30mi"};
     TAGS.collectTweets(doc, advParams);
+  }
+}
+
+/**
+* Rebuilds a Twitter archive from Twitter IDs.
+*/
+function rebuildArchiveFromIds(){
+if (!TAGS.isUserConnectedToTwitter()){
+    var result = Browser.msgBox("Oops!", 
+                              "Looks like you haven't setup Twitter access\\n\\nWould you like to do that now?", 
+                              Browser.Buttons.YES_NO);
+    // Process the user's response.
+    if (result == 'yes') {
+      setup();
+    }
+  } else {    
+    var doc = SpreadsheetApp.getActiveSpreadsheet();
+    var advParams = {};
+    var resp = TAGS.rebuildArchiveFromIds(doc, advParams);
+    if (resp){
+      if (resp.status === 'set trigger'){
+        ScriptApp.newTrigger("rebuildArchiveFromIds")
+        .timeBased()
+        .at(new Date(resp.time*1000))
+        .create();
+      }
+      Browser.msgBox(resp.msg);
+    }
+  }
 }
 
 /**
@@ -49,7 +81,9 @@ function onOpen() {
 * Test rates available from Twitter
 */
 function testRate(){
-  TAGS.testRate();
+  var resp = TAGS.testRate();
+  var time = new Date(1491072439*1000);
+  Logger.log(resp);
 }
 
 /**
@@ -71,17 +105,17 @@ function wipeArchive(){
 * Launches key/secret and auth flow
 */
 function setup() {
-  if (TwtrService.isUserConnectedToTwitter()){
+  if (TAGS.isUserConnectedToTwitter()){
    var result = Browser.msgBox("Twitter Authorisation", 
                    "You appear to already be connected to Twitter.\\n\\nWould you like to run the setup again?", 
                    Browser.Buttons.YES_NO);
     // Process the user's response.
     if (result == 'yes') {
-      // User clicked "Yes".
-      TwtrService.showTwitterKeySecret(SpreadsheetApp);
+      // User clicked "Yes". 
+       TAGS.showTwitterLogin(SpreadsheetApp);
     } 
   } else {
-    TwtrService.showTwitterKeySecret(SpreadsheetApp);
+     TAGS.showTwitterLogin(SpreadsheetApp);
   }
 }
 
@@ -89,8 +123,12 @@ function setup() {
 * Used as part of setup() to process form data
 */
 function processForm(formObject) {
-  TwtrService.setUserKeySecret(formObject);
-  TwtrService.showTwitterLogin(SpreadsheetApp);
+  TAGS.setUserKeySecret(formObject);
+  TAGS.showTwitterLaunch(SpreadsheetApp);
+}
+
+function showTwitterKeyForm(){
+  TAGS.showTwitterKeyForm(SpreadsheetApp);
 }
 
 /**
@@ -116,7 +154,7 @@ function disconnectTwitter() {
                                 Browser.Buttons.YES_NO);
   // Process the user's response.
   if (result == 'yes') {
-    TwtrService.disconnectTwitter();
+    TAGS.disconnectTwitter();
   }
 }
 
@@ -206,3 +244,4 @@ function getSheetGID(optSheetName) {
 function filterUnique(tweets){
   return TAGS.filterUnique(tweets);
 }
+

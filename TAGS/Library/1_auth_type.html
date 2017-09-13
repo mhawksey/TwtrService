@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script>
+    window.openTab = function() {
+      window.open(href="<?= SERVICE_URL ?>", target="_blank");
+      google.script.host.close();
+    };
+    </script>
+  </head>
+  <body>
+  <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
+  <div style="margin-bottom:10px;">
+  <div class="info"><p>TAGS has two options in the way to connect to access data from Twitter. 
+  The easy option requires you to only authenticate using a Twitter account using the TAGS for 
+  Google Sheets Twitter application. Alternatively you can provide your own application key and secret.</p>
+  </div>
+  		<button value="Custom Keys" onmouseup="google.script.run.showTwitterKeyForm();this.disabled = true;">Custom Keys</button>
+        <button style="float:right" class="action" onmouseup="openTab()">Easy Setup</button>
+  </div>
+  
+  </body>
+</html>
+
+

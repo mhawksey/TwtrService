@@ -1,0 +1,48 @@
+<html>
+<head>
+<base target="_top">
+</head>
+<body>
+<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
+<style>
+input[type=text] {
+display:block;
+width:90%;
+margin-bottom:10px;
+}
+</style>
+<div style="margin-bottom:10px;">
+	<form id="myForm" action="https://script.google.com/macros/s/AKfycbyczOKb0_wl3y2cmvAHmL5hpaiXuRZHsOgInZIClCk/exec">
+		<div class="info">
+			<p>To collect data from Twitter you need to register a new application. 
+				Registering your application and connecting should be a one time only task.
+			</p>
+			<p><strong>Steps</strong>:</p>
+			<ol>
+				<li>Register for an API key with Twitter at <a href="https://dev.twitter.com/apps/new" target="_blank">https://dev.twitter.com/apps/new</a> (if you've already registered for a TAGS sheet you can reuse your existing API Key and Secret).</li>
+				<ul>
+					<li>Name, description and website can be anything you like</li>
+					<li><strong>Important</strong> Include the Callback URL <strong>https://script.google.com/macros/</strong></li>
+				</ul>
+				<li>Read the 'Developer Rules of the Road' before clicking 'Create your Twitter application'</li>
+				<li>Enter your Twitter application API key and secret in the form below:</li>
+			</ol>
+		</div>
+		<div class="group">      
+			<label>API Key
+			<input name="consumerKey" id="consumerKey" type="text" value="<?=getUserKey()?>" /></label>
+			<span class="highlight"></span>
+			<span class="bar"></span>
+		</div>
+		<div class="group">
+			<label>API Secret
+			<input name="consumerSecret" id="consumerSecret" type="text" value="<?=getUserSecret()?>" /></label>
+			<span class="highlight"></span>
+			<span class="bar"></span>
+		</div>
+		<input type="button" value="Next" class="action" style="float:right"
+			onclick="google.script.run.processForm(this.parentNode);this.disabled = true;" />
+	</form>
+</div>
+</body>
+</html>
