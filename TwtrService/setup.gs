@@ -17,12 +17,15 @@
 */
 
 var consumer = { consumerKey    : getStaticUserProperty_('consumerKey') || null, 
-                 consumerSecret : getStaticUserProperty_('consumerSecret') || null, 
-                 serviceProvider: { signatureMethod     : "HMAC-SHA1",
+                 consumerSecret : getStaticUserProperty_('consumerSecret') || null,
+                 propertyStore  : PropertiesService.getUserProperties(),
+                 serviceProvider: { name                : "twitter",
                                     requestTokenURL     : "https://api.twitter.com/oauth/request_token",
                                     userAuthorizationURL: "https://api.twitter.com/oauth/authorize", 
-                                    accessTokenURL      : "https://api.twitter.com/oauth/access_token" },
+                                    accessTokenURL      : "https://api.twitter.com/oauth/access_token",
+                                    scriptId          : "1zJWE5BhTED5VD6UAPj6CwZPnspf1S4MYtIi4NZiyQOKUOmSPAemaQaXX"},
               };
+
 
 /* Set up the API root URL. */
 var HOST = 'https://api.twitter.com/1.1/';
@@ -30,11 +33,12 @@ var UPLOAD_HOST = 'https://upload.twitter.com/1.1/';
 /* Respons format. */
 var FORMAT = 'json';
 /* Managed Library Script Id (for user callback) */
-var SCRIPT_ID = "MarIlVOhstkJA6QjPgCWAHIq9hSqx7jwh";
+//var SCRIPT_ID = "MarIlVOhstkJA6QjPgCWAHIq9hSqx7jwh";
+var SCRIPT_ID = "1zJWE5BhTED5VD6UAPj6CwZPnspf1S4MYtIi4NZiyQOKUOmSPAemaQaXX";
 var SERVICE_URL = getStaticScriptProperty_("service_url");
 var HASH = getStaticScriptProperty_('hash');
 var INITIALISED_SIG = "";
-var H = 380, W = 600;
+var H = 450, W = 600;
 
 
 
@@ -51,6 +55,20 @@ function init(config){
   setStaticUserProperty_(INITIALISED_SIG, JSON.stringify(consumer));
   SERVICE_URL += "?signature="+INITIALISED_SIG;
   return SERVICE_URL;
+}
+
+/**
+* Script service to handle authentication flow.
+*
+* @return {HTMLService}
+*/
+function doPost(e){
+  var w = HtmlService.createTemplateFromFile('3_auth_pop');
+  w.parameters = e.parameters;
+  return w.evaluate()
+          .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+          .setHeight(320).setWidth(600)
+          .setTitle('Twitter Authorisation');
 }
 
 /**
@@ -80,6 +98,16 @@ function getStaticScriptProperty_(key) {
   }
   return value;
 }
+
+/**
+* Show auth window for a SpreadsheetApp.
+* 
+* @param {SpreadsheetApp} doc The Document or Spreadsheet the library is being called from.
+*/
+function showTwitterLaunch(doc){
+  return showDialog_(doc, '2_start_auth');
+}
+
 
 /**
  * Gets a static user property, using long term caching.
@@ -116,11 +144,72 @@ function deleteStaticUserProperty_(key) {
 }
 
 /**
+ * Logs the callback URL to register.
+ */
+function logCallbackUrl() {
+  var service = getTwitterService();
+  Logger.log(service.getCallbackUrl());
+}
+
+function getTwitterService() {
+  var service = OAuth1.createService(consumer.serviceProvider.name);
+  service.setAccessTokenUrl(consumer.serviceProvider.accessTokenURL)
+  service.setRequestTokenUrl(consumer.serviceProvider.requestTokenURL)
+  service.setAuthorizationUrl(consumer.serviceProvider.userAuthorizationURL)
+  service.setConsumerKey(consumer.consumerKey);
+  service.setConsumerSecret(consumer.consumerSecret);
+  //service.setProjectKey(consumer.serviceProvider.projectKey);
+  service.setCallbackFunction('authCallback');
+  service.setPropertyStore(consumer.propertyStore);
+  return service;
+}
+
+/**
 * Generate Twitter authorisation url.
 *
 * @return {string} authorisation url (link for user to start twitter authentication).
 */
-function getTwitterAuthURL_(signature) {
+function getTwitterAuthURL_() {
+  var twitterService = getTwitterService();
+  var authorizationUrl = twitterService.authorize();
+  //return authorizationUrl;
+  return "<a href='"+authorizationUrl+"' target='_blank'><img src='https://g.twimg.com/dev/sites/default/files/images_documentation/sign-in-with-twitter-gray.png'/></a>";
+  //return "<a href='"+authorizationUrl+"' target='_blank' onclick='google.script.host.close();'><img src='https://g.twimg.com/dev/sites/default/files/images_documentation/sign-in-with-twitter-gray.png'/></a>";
+}
+
+/**
+* Generate Twitter authorisation url.
+*
+* @return {string} authorisation url (link for user to start twitter authentication).
+*/
+function getAuthorizationURL() {
+  var twitterService = getTwitterService();
+  var authorizationUrl = twitterService.authorize();
+  return authorizationUrl;
+}
+
+/**
+* Handles the OAuth callback..
+*
+* @param {Object} request object from Twitter callback
+* @param {string} stepTemplate The template file to render
+*/
+function authCallback(request) {
+  var twitterService = getTwitterService();
+  var isAuthorized = twitterService.handleCallback(request);
+  if (isAuthorized) {
+    return HtmlService.createHtmlOutputFromFile('4_auth_success').setTitle('Twitter Authorisation Complete');
+  } else {
+    return HtmlService.createHtmlOutput('Denied. You can close this tab');
+  }
+}
+
+/**
+* Generate Twitter authorisation url.
+*
+* @return {string} authorisation url (link for user to start twitter authentication).
+*/
+/*function getTwitterAuthURL_(signature) {
   if (signature){
     INITIALISED_SIG = signature;
     var accessor = JSON.parse(getStaticUserProperty_(signature));
@@ -146,9 +235,9 @@ function getTwitterAuthURL_(signature) {
   }
   var tokenProperties = requestTokenResponse.getContentText().split('&');
   var authorizeURL = 'https://api.twitter.com/oauth/authorize?'+tokenProperties[0];
-  return "<a href='"+authorizeURL+"' target='_blank' onclick='google.script.host.close();'><img src='https://g.twimg.com/dev/sites/default/files/images_documentation/sign-in-with-twitter-gray.png'/></a>";
+  return "<a href='"+authorizeURL+"' target='_blank'><img src='https://g.twimg.com/dev/sites/default/files/images_documentation/sign-in-with-twitter-gray.png'/></a>";
 }
-
+*/
 /**
 * Get user callback url with state token.
 *
@@ -262,7 +351,7 @@ function disconnectTwitter(){
 /**
 * Show auth window (private).
 *
-* @param {Object} doctype Instigator service (DocumentApp || SpreadsheetApp etc)
+* @param {Object} doctype Instigator service (Document App || Spreadsheet App etc)
 * @param {string} stepTemplate The template file to render
 */
 function showDialog_(optDoctype, stepTemplate){
@@ -280,7 +369,7 @@ function showDialog_(optDoctype, stepTemplate){
     // if Google old Sheet fallback to UiApp
     switch(stepTemplate){
       case "1_cred_pop":
-        doctype.getActiveSpreadsheet().show(cred_pop_old_());
+        // doctype.getActiveSpreadsheet().show(cred_pop_old_()); // no longer required
         break;
     }
   }
@@ -289,16 +378,16 @@ function showDialog_(optDoctype, stepTemplate){
 /**
 * Show the key/secret data entry form.
 *
-* @param {(DocumentApp|SpreadsheetApp)} doc The Document or Spreadsheet the library is being called from.
+* @param {(DocumentApp|SpreadsheetApp|FormApp|SlidesApp)} doc The Document or Spreadsheet the library is being called from.
 */
 function showTwitterKeySecret(doc){
    return showDialog_(doc, '1_cred_pop');
 }
 
 /**
-* Show auth window for a DocumentApp.
+* Show auth window for a Spreadsheet or Document App.
 * 
-* @param {(DocumentApp|SpreadsheetApp)} doc The Document or Spreadsheet the library is being called from.
+* @param {(DocumentApp|SpreadsheetApp|FormApp|SlidesApp)} doc The Document or Spreadsheet the library is being called from.
 */
 function showTwitterLogin(doc){
   return showDialog_(doc, '2_start_auth');

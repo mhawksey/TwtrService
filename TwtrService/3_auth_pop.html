@@ -1,9 +1,19 @@
-<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
-<?!= include('style'); ?>
-<div id="wrap">
-  <h1>Twitter Authorisation</h1>
-  <div class="info"> <p>Please be aware that if you are logged into multiple Google accounts authentication may fail. You can either log out of other Google accounts or use an incognito window.</p></div>
-  <div class="start-twitter-auth">
-  <?!= getTwitterAuthURL_(parameters.signature); ?>
-  </div>
-</div>
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
+    <?!= include('style'); ?>
+</head>
+<body>
+    <div id="wrap">
+        <h1>Twitter Authorisation</h1>
+        <div class="info">
+            <p>Please be aware that if you are logged into multiple Google accounts authentication may fail. You can either log out of other Google accounts or use an incognito window.</p>
+        </div>
+        <div class="start-twitter-auth">
+            <?!= getTwitterAuthURL_(parameters.signature); ?>
+        </div>
+    </div>
+</body>
+</html>

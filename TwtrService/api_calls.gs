@@ -56,39 +56,18 @@ function upload(url, parameters) {
 * @return {Object} response.
 */
 function request_(url, method, optParam){
-  var param = optParam || [];
-  if (INITIALISED_SIG){
-    var accessor = JSON.parse(getStaticUserProperty_(INITIALISED_SIG));
-  } else {
-    var accessor = consumer;
-  } 
-  var message = { method: method, 
-                  action: url
-  };
-  switch (method) {
-    case 'POST':
-      message.parameters = optParam;
+  var param = optParam || {};
+  var urlFetchOptions = {};
+  if (method !== 'GET'){
+    var urlFetchOptions = {
+      "method" : method,
+      "payload" : param,
+    };
   }
-  
-  var requestBody = oauthlibrary.OAuth.formEncode(message.parameters);
-
-  oauthlibrary.OAuth.completeRequest(message,
-                                     { consumerKey   : accessor.consumerKey,
-                                       consumerSecret: accessor.consumerSecret,
-                                       token         : getStaticUserProperty_('oauth_token'+INITIALISED_SIG), 
-                                       tokenSecret   : getStaticUserProperty_('oauth_token_secret'+INITIALISED_SIG)
-                                     }); 
-                                     
-  var authorizationHeader = oauthlibrary.OAuth.getAuthorizationHeader("", message.parameters);
-  var urlFetchOptions = {
-    "method" : method,
-    "payload" : requestBody,
-    "headers" : {"Authorization" : authorizationHeader},
-  };
 
   try {
-    //return {'request':{'action': message.action, 'options': urlFetchOptions}};
-    var f = UrlFetchApp.fetch(message.action, urlFetchOptions);
+    var twitterService = getTwitterService();
+    var f = twitterService.fetch(url, urlFetchOptions);
     if (f.getResponseCode() === 429){
       return Browser.msgBox("Twitter rate limit exceeded");
     }
